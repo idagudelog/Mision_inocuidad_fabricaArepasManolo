@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Listos para Producir</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+body{background:#0e1820;font-family:'Nunito',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:50px;background:linear-gradient(90deg,#0a1218,#12202e);border-bottom:2px solid #1e3a50;flex-shrink:0}
+.tb-title{font-size:14px;font-weight:800;color:#fff}.tb-title span{color:#3498db}
+#timer{font-size:28px;font-weight:900;color:#2ecc71}
+#timer.warn{color:#f39c12}#timer.danger{color:#e74c3c;animation:blink 0.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+#score-display{font-size:20px;font-weight:800;color:#f1c40f}
+#progress-wrap{display:flex;align-items:center;gap:6px;font-size:13px;color:#7f8c8d}
+#prog-bar-bg{width:100px;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden}
+#prog-bar{height:100%;background:#27ae60;border-radius:4px;transition:width 0.3s;width:0%}
+#game{flex:1;display:flex;overflow:hidden}
+.panel{width:148px;padding:0;display:flex;flex-direction:column;flex-shrink:0;background:rgba(0,0,0,0.3);position:relative}
+.panel-scroll-btn{width:100%;height:26px;border:none;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);font-size:14px;cursor:pointer;flex-shrink:0;transition:background 0.15s;line-height:1}
+.panel-scroll-btn:hover{background:rgba(255,255,255,0.14);color:#fff}
+.panel-inner{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:9px 7px;scrollbar-width:none}
+.panel-inner::-webkit-scrollbar{display:none}
+.panel.left{border-right:1px solid rgba(255,255,255,0.06)}
+.panel.right{border-left:1px solid rgba(255,255,255,0.06)}
+.plabel{font-size:9px;font-weight:700;color:#4a6a7a;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:2px 0 5px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:2px}
+.item{background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:7px 5px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:grab;transition:transform 0.15s,opacity 0.3s,background 0.2s;position:relative}
+.item:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.25);transform:translateY(-2px)}
+.item.dragging{opacity:0.2;cursor:grabbing}
+.item.placed{opacity:0.15;pointer-events:none;border-style:dashed}
+.item.locked{opacity:0.28;pointer-events:none}
+.item.item-trap{border-color:rgba(231,76,60,0.2);background:rgba(231,76,60,0.04)}
+.item.item-trap:hover{background:rgba(231,76,60,0.12);border-color:rgba(231,76,60,0.4)}
+.isvg{width:54px;height:54px}.isvg svg{width:54px;height:54px;display:block}
+.iname{font-size:10px;font-weight:700;color:#a0b4c0;text-align:center;line-height:1.2}
+.badge-opt{font-size:8px;font-weight:800;background:#e67e22;color:#fff;padding:2px 4px;border-radius:4px;position:absolute;top:-5px;right:-3px}
+.badge-lock{font-size:8px;font-weight:700;background:#555;color:#ccc;padding:2px 4px;border-radius:4px;position:absolute;top:-5px;right:-3px}
+/* Centro con maniquí */
+#center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+#mwrap{position:relative;width:220px;height:440px;flex-shrink:0}
+/* SVG maestro ocupa todo el espacio */
+#msvg{display:block;width:220px;height:440px}
+/* Zonas de drop superpuestas al SVG */
+#dzones{position:absolute;top:0;left:0;width:220px;height:440px;pointer-events:none}
+.dz{position:absolute;border:2px dashed transparent;border-radius:10px;display:flex;align-items:center;justify-content:center;transition:background 0.2s,border-color 0.2s;pointer-events:all}
+.dz.active{border-color:rgba(52,152,219,0.9);background:rgba(52,152,219,0.18)}
+.dz.ok{border-color:rgba(39,174,96,0.5);background:rgba(39,174,96,0.08);border-style:solid}
+.dz.bad{border-color:#e74c3c;background:rgba(231,76,60,0.2);animation:shk 0.4s}
+@keyframes shk{0%,100%{transform:none}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.dzlabel{font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:1px;text-align:center;pointer-events:none}
+.dz.ok .dzlabel{opacity:0}
+/* Posiciones de zonas sobre el SVG 220x440 */
+#dz-head  {top:2px;  left:28px; width:164px;height:76px}
+#dz-face  {top:76px; left:40px; width:140px;height:48px}
+#dz-torso {top:128px;left:8px;  width:204px;height:116px}
+#dz-hands {top:184px;left:-14px;width:52px; height:72px}
+#dz-hands2{top:184px;right:-14px;width:52px;height:72px}
+#dz-legs  {top:248px;left:20px; width:180px;height:118px}
+#dz-feet  {top:368px;left:10px; width:200px;height:72px}
+/* Ghost y toast */
+#ghost{position:fixed;pointer-events:none;z-index:9999;display:none;flex-direction:column;align-items:center;background:rgba(52,152,219,0.15);border:2px solid rgba(52,152,219,0.7);border-radius:12px;padding:8px;transform:translate(-50%,-55%)}
+#ghost svg{width:44px;height:44px}
+#ghost .gn{font-size:10px;font-weight:700;color:#7fc8e8;margin-top:3px;text-align:center;font-family:'Nunito',sans-serif}
+#toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:30px;font-size:13px;font-weight:700;pointer-events:none;z-index:1000;opacity:0;transition:opacity 0.3s;max-width:94vw;text-align:center;font-family:'Nunito',sans-serif;line-height:1.4}
+#toast.on{opacity:1}#toast.ok{background:#27ae60;color:#fff}#toast.err{background:#e74c3c;color:#fff}#toast.info{background:#3498db;color:#fff}
+/* Overlays */
+.ov{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.88)}
+.ov.on{display:flex}
+.rp{background:#0e1820;border-radius:20px;padding:34px 42px;text-align:center;max-width:480px;width:90%;border:2px solid}
+.rp.win{border-color:#27ae60}.rp.time{border-color:#f39c12}
+.re{font-size:56px;margin-bottom:8px}.rt{font-size:28px;font-weight:900;margin-bottom:8px}
+.win .rt{color:#2ecc71}.time .rt{color:#f39c12}
+.rs{font-size:13px;color:#95a5a6;margin-bottom:14px;line-height:1.5}
+.rsc{font-size:24px;font-weight:900;color:#f1c40f;margin-bottom:20px}
+.rbs{display:flex;gap:10px;justify-content:center}
+.rb{padding:10px 22px;border-radius:10px;font-size:14px;font-weight:800;border:none;cursor:pointer;font-family:'Nunito',sans-serif}
+.rb.p{background:#27ae60;color:#fff}.rb.s{background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)}
+/* ── PANTALLA INICIO (estilo unificado) ── */
+#ss{position:fixed;inset:0;z-index:400;background:rgba(6,9,14,0.97);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:14px;overflow-y:auto;padding:16px 20px}
+.po-icon{font-size:68px;line-height:1}
+.po-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,7vw,44px);letter-spacing:clamp(0px,0.8vw,4px);text-align:center;color:#fff}
+.po-sub{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f39c12;text-align:center}
+.po-rules{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 22px;max-width:480px;width:100%}
+.po-rules li{font-size:13px;color:#bdc3c7;margin-bottom:6px;line-height:1.5;list-style:none;padding-left:4px}
+.po-btn{padding:11px 38px;border-radius:12px;border:none;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#fff;transition:opacity 0.2s,transform 0.1s;margin-top:4px}
+.po-btn:hover{opacity:0.85;transform:scale(1.04)}
+#hint-txt{font-size:12px;color:#4a7a9a;text-align:center;max-width:220px;line-height:1.4}
+
+/* ── PORTRAIT MÓVIL ── */
+@media(orientation:portrait){
+  /* Grid: maniquí arriba (ocupa todo el ancho), paneles lado a lado abajo */
+  #game{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 170px;
+    grid-template-areas:"center center" "left right";
+  }
+  #center{grid-area:center;overflow:hidden}
+  #pl-wrap{grid-area:left;width:auto;border-right:1px solid rgba(255,255,255,0.06);border-top:2px solid rgba(255,255,255,0.1)}
+  #pr-wrap{grid-area:right;width:auto;border-top:2px solid rgba(255,255,255,0.1)}
+  .panel{width:auto}
+  .panel-inner{padding:6px 5px;gap:4px}
+  .panel-scroll-btn{height:28px;font-size:15px}
+  .plabel{font-size:9px}
+  .item{padding:5px 4px;border-radius:10px}
+  .iname{font-size:9px}
+  #hint-txt{font-size:11px;max-width:180px}
+}
+
+/* ── RESPONSIVE LANDSCAPE MÓVIL (≤500px alto) ── */
+@media(max-height:500px){
+  #topbar{height:36px;padding:0 10px}
+  .tb-title{font-size:11px}
+  #timer{font-size:20px}
+  #score-display{font-size:14px}
+  #progress-wrap{font-size:11px}
+  #prog-bar-bg{width:70px}
+  /* Paneles laterales con botones flecha */
+  .panel{width:108px}
+  .panel-inner{padding:5px 4px;gap:3px}
+  .panel-scroll-btn{height:22px;font-size:12px}
+  .plabel{font-size:8px;padding:1px 0 3px}
+  .item{padding:4px 3px;gap:2px;border-radius:8px}
+  .isvg,.isvg svg{width:38px;height:38px}
+  .iname{font-size:8.5px}
+  /* Maniquí: escala dinámica vía JS (ver fitMannequin) */
+  #center{gap:2px}
+  #hint-txt{font-size:10px;max-width:150px}
+  /* Pantalla inicio compacta */
+  #ss{gap:7px;padding:10px 14px}
+  .po-icon{font-size:32px}
+  .po-title{font-size:22px;letter-spacing:1px}
+  .po-sub{font-size:13px}
+  .po-rules{padding:7px 12px;max-width:100%}
+  .po-rules li{font-size:10px;margin-bottom:2px;line-height:1.3}
+  .po-btn{padding:7px 24px;font-size:17px;margin-top:0}
+  /* Resultado compacto */
+  .rp{padding:16px 20px}
+  .re{font-size:36px;margin-bottom:4px}
+  .rt{font-size:19px;margin-bottom:4px}
+  .rs{font-size:11px;margin-bottom:8px}
+  .rsc{font-size:17px;margin-bottom:10px}
+  .rb{padding:7px 14px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<!-- PANTALLA INICIO -->
+<div id="ss">
+  <div class="po-icon">&#x1F9D1;&#x200D;&#x1F373;</div>
+  <div class="po-title" style="color:#3498db">LISTOS PARA PRODUCIR</div>
+  <div class="po-sub">&#x1F9E4; Equipate Bien</div>
+  <ul class="po-rules">
+    <li>&#x1F91A; Arrastra cada elemento EPP a la zona correcta del cuerpo</li>
+    <li>&#x2705; Zona correcta: <b>+100 puntos</b></li>
+    <li>&#x274C; Zona incorrecta o item no valido: <b>&#x2212;10 segundos</b></li>
+    <li>&#x1F455; Orden importa: primero la camisa, luego el delantal encima</li>
+    <li>&#x26A0;&#xFE0F; Hay prendas que NO son EPP valido &mdash; no te dejes engañar</li>
+    <li>&#x2B50; Guantes y delantal son opcionales pero suman puntos extra</li>
+  </ul>
+  <button class="po-btn" style="background:linear-gradient(135deg,#2980b9,#3498db);box-shadow:0 0 24px rgba(52,152,219,0.5)" onclick="startGame()">&#x25B6;&nbsp; COMENZAR</button>
+</div>
+
+<!-- BARRA SUPERIOR -->
+<div id="topbar">
+  <div class="tb-title">&#x1F9D1;&#x200D;&#x1F373; Listos para Producir: <span>Equipate Bien!</span></div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <span style="font-size:12px;color:#7f8c8d">Tiempo:</span>
+    <span id="timer">50</span><span style="font-size:12px;color:#7f8c8d">s</span>
+  </div>
+  <div id="score-display">Pts: 0</div>
+  <div id="progress-wrap">
+    <span id="prog-text">0 / 5</span>
+    <div id="prog-bar-bg"><div id="prog-bar"></div></div>
+  </div>
+</div>
+
+<!-- JUEGO -->
+<div id="game">
+  <div class="panel left" id="pl-wrap">
+    <button class="panel-scroll-btn" onclick="scrollPanel('pl',-80)">▲</button>
+    <div class="panel-inner left" id="pl"></div>
+    <button class="panel-scroll-btn" onclick="scrollPanel('pl',80)">▼</button>
+  </div>
+
+  <div id="center">
+    <div id="mwrap">
+
+      <!-- ============================================================
+           SVG MAESTRO: maniquí base + todas las prendas en el mismo
+           espacio de coordenadas 220x440. Cada prenda es un <g>
+           con display:none que se activa al colocarla.
+           ============================================================ -->
+      <svg id="msvg" viewBox="0 0 220 440" xmlns="http://www.w3.org/2000/svg">
+
+        <!-- ORDEN DE CAPAS (de fondo a frente):
+          1. Piernas piel
+          2. Pantalon
+          3. Pies/botas
+          4. Brazos piel
+          5. Torso piel
+          6. Camisa (torso + mangas completas)
+          7. Delantal
+          8. Guantes (sobre manos)
+          9. Cabeza + pelo (sin rasgos)
+          10. Cofia (sobre pelo)
+          11. Cara: ojos, nariz, boca — SIEMPRE al frente
+          12. Mascarilla (tapa nariz+boca, pero ojos quedan libres encima)
+          13. Ojos — redibujados encima de mascarilla y cofia
+        -->
+
+        <!-- ── 1. PIERNAS PIEL ── -->
+        <rect x="66"  y="218" width="40" height="162" rx="12" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+        <rect x="114" y="218" width="40" height="162" rx="12" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+
+        <!-- ── 2. PANTALÓN ── -->
+        <g id="epp-pantalon" display="none">
+          <rect x="64" y="215" width="92" height="14" rx="5" fill="#e0e0e0" stroke="#ccc" stroke-width="1"/>
+          <rect x="64" y="227" width="42" height="156" rx="12" fill="#f4f4f4" stroke="#d0d0d0" stroke-width="1.5"/>
+          <rect x="114" y="227" width="42" height="156" rx="12" fill="#f4f4f4" stroke="#d0d0d0" stroke-width="1.5"/>
+          <line x1="110" y1="227" x2="110" y2="305" stroke="#e0e0e0" stroke-width="1"/>
+        </g>
+
+        <!-- ── 3. PIES PIEL + BOTAS ── -->
+        <ellipse cx="86"  cy="386" rx="28" ry="14" fill="#8b7355"/>
+        <ellipse cx="134" cy="386" rx="28" ry="14" fill="#8b7355"/>
+        <g id="epp-botas" display="none">
+          <rect x="56"  y="372" width="58" height="58" rx="8" fill="#f2f2f2" stroke="#ccc" stroke-width="1.5"/>
+          <rect x="52"  y="418" width="66" height="14" rx="6" fill="#e8e8e8" stroke="#c8c8c8" stroke-width="1"/>
+          <line x1="62"  y1="387" x2="102" y2="387" stroke="#e0e0e0" stroke-width="1"/>
+          <line x1="62"  y1="400" x2="102" y2="400" stroke="#e0e0e0" stroke-width="1"/>
+          <rect x="106" y="372" width="58" height="58" rx="8" fill="#f2f2f2" stroke="#ccc" stroke-width="1.5"/>
+          <rect x="102" y="418" width="66" height="14" rx="6" fill="#e8e8e8" stroke="#c8c8c8" stroke-width="1"/>
+          <line x1="118" y1="387" x2="154" y2="387" stroke="#e0e0e0" stroke-width="1"/>
+          <line x1="118" y1="400" x2="154" y2="400" stroke="#e0e0e0" stroke-width="1"/>
+        </g>
+
+        <!-- ── 4. BRAZOS PIEL ── -->
+        <rect x="26" y="100" width="40" height="112" rx="14" fill="#f4a460" stroke="#d4845a" stroke-width="1.2"/>
+        <rect x="154" y="100" width="40" height="112" rx="14" fill="#f4a460" stroke="#d4845a" stroke-width="1.2"/>
+        <!-- manos -->
+        <ellipse cx="46"  cy="220" rx="20" ry="14" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+        <ellipse cx="174" cy="220" rx="20" ry="14" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+
+        <!-- ── 5. TORSO PIEL ── -->
+        <rect x="64" y="98" width="92" height="124" rx="6" fill="#f4a460"/>
+        <rect x="58" y="98" width="104" height="22" rx="6" fill="#f4a460"/>
+        <rect x="94" y="80" width="32" height="24" rx="6" fill="#f4a460"/>
+
+        <!-- ── 6. CAMISA con MANGAS completas ── -->
+        <g id="epp-camisa" display="none">
+          <!-- manga izquierda — cubre brazo izq completamente -->
+          <rect x="26" y="98" width="42" height="114" rx="14" fill="#f8f8f8" stroke="#d8d8d8" stroke-width="1.3"/>
+          <!-- manga derecha — cubre brazo der completamente -->
+          <rect x="152" y="98" width="42" height="114" rx="14" fill="#f8f8f8" stroke="#d8d8d8" stroke-width="1.3"/>
+          <!-- cuerpo principal -->
+          <rect x="62" y="96" width="96" height="128" rx="5" fill="#f8f8f8" stroke="#d8d8d8" stroke-width="1.5"/>
+          <!-- hombros (relleno sobre hueco entre manga y cuerpo) -->
+          <rect x="56" y="96" width="108" height="24" rx="6" fill="#f8f8f8" stroke="#d8d8d8" stroke-width="1"/>
+          <!-- cuello -->
+          <path d="M94 80 L94 102 Q110 114 126 102 L126 80" fill="#f8f8f8" stroke="#d8d8d8" stroke-width="1"/>
+          <!-- botones centrales -->
+          <line x1="110" y1="110" x2="110" y2="224" stroke="#e4e4e4" stroke-width="1"/>
+          <circle cx="110" cy="118" r="2.5" fill="#ccc"/>
+          <circle cx="110" cy="136" r="2.5" fill="#ccc"/>
+          <circle cx="110" cy="154" r="2.5" fill="#ccc"/>
+          <circle cx="110" cy="172" r="2.5" fill="#ccc"/>
+          <circle cx="110" cy="190" r="2.5" fill="#ccc"/>
+          <circle cx="110" cy="208" r="2.5" fill="#ccc"/>
+          <!-- puños -->
+          <rect x="26" y="198" width="42" height="14" rx="5" fill="#eeeeee" stroke="#d0d0d0" stroke-width="1"/>
+          <rect x="152" y="198" width="42" height="14" rx="5" fill="#eeeeee" stroke="#d0d0d0" stroke-width="1"/>
+        </g>
+
+        <!-- ── 7. DELANTAL ── -->
+        <g id="epp-delantal" display="none">
+          <rect x="90"  y="82" width="12" height="18" rx="3" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1"/>
+          <rect x="118" y="82" width="12" height="18" rx="3" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1"/>
+          <path d="M78 102 L142 102 L136 224 L84 224 Z" fill="#f5f5f5" stroke="#ccc" stroke-width="1.5"/>
+          <rect x="86" y="158" width="48" height="34" rx="4" fill="#efefef" stroke="#ccc" stroke-width="1"/>
+          <line x1="110" y1="158" x2="110" y2="192" stroke="#e0e0e0" stroke-width="0.8"/>
+          <line x1="78" y1="118" x2="142" y2="118" stroke="#e8e8e8" stroke-width="0.8"/>
+        </g>
+
+        <!-- ── 8. GUANTES ── -->
+        <g id="epp-guantes" display="none">
+          <!-- mano izq: cx=46 cy=220 -->
+          <ellipse cx="46" cy="220" rx="21" ry="15" fill="#f0f0f0" stroke="#c8c8c8" stroke-width="1.5"/>
+          <ellipse cx="35" cy="212" rx="5" ry="4" fill="#e8e8e8" stroke="#c0c0c0" stroke-width="1"/>
+          <ellipse cx="46" cy="209" rx="5" ry="4" fill="#e8e8e8" stroke="#c0c0c0" stroke-width="1"/>
+          <ellipse cx="57" cy="212" rx="5" ry="4" fill="#e8e8e8" stroke="#c0c0c0" stroke-width="1"/>
+          <ellipse cx="29" cy="224" rx="5" ry="7" fill="#f0f0f0" stroke="#c8c8c8" stroke-width="1" transform="rotate(-18,29,224)"/>
+          <line x1="26" y1="220" x2="66" y2="220" stroke="#d8d8d8" stroke-width="0.8"/>
+          <!-- mano der: cx=174 cy=220 -->
+          <ellipse cx="174" cy="220" rx="21" ry="15" fill="#f0f0f0" stroke="#c8c8c8" stroke-width="1.5"/>
+          <ellipse cx="163" cy="212" rx="5" ry="4" fill="#e8e8e8" stroke="#c0c0c0" stroke-width="1"/>
+          <ellipse cx="174" cy="209" rx="5" ry="4" fill="#e8e8e8" stroke="#c0c0c0" stroke-width="1"/>
+          <ellipse cx="185" cy="212" rx="5" ry="4" fill="#e8e8e8" stroke="#c0c0c0" stroke-width="1"/>
+          <ellipse cx="191" cy="224" rx="5" ry="7" fill="#f0f0f0" stroke="#c8c8c8" stroke-width="1" transform="rotate(18,191,224)"/>
+          <line x1="154" y1="220" x2="194" y2="220" stroke="#d8d8d8" stroke-width="0.8"/>
+        </g>
+
+        <!-- ── 9. CABEZA Y PELO ── -->
+        <ellipse cx="110" cy="50" rx="40" ry="44" fill="#f4a460" stroke="#d4845a" stroke-width="1.5"/>
+        <ellipse cx="110" cy="16" rx="40" ry="26" fill="#5a3a1a"/>
+        <ellipse cx="70"  cy="52" rx="9" ry="13" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+        <ellipse cx="150" cy="52" rx="9" ry="13" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+
+        <!-- ── 10. COFIA — sobre pelo, NO tapa la cara ── -->
+        <g id="epp-cofia" display="none">
+          <!-- malla: cubre solo la parte superior de la cabeza (pelo) -->
+          <ellipse cx="110" cy="20" rx="42" ry="30" fill="#f0f0f0" stroke="#ccc" stroke-width="1.5"/>
+          <ellipse cx="110" cy="18" rx="40" ry="28" fill="none" stroke="#bbb" stroke-width="1" stroke-dasharray="5,3"/>
+          <ellipse cx="110" cy="18" rx="28" ry="18" fill="none" stroke="#bbb" stroke-width="0.7" stroke-dasharray="4,2"/>
+          <ellipse cx="110" cy="18" rx="14" ry="9"  fill="none" stroke="#bbb" stroke-width="0.6" stroke-dasharray="3,2"/>
+          <!-- banda en frente: y=42 = justo encima de cejas sin tapar ojos (cy=48) -->
+          <rect x="70" y="42" width="80" height="10" rx="5" fill="#e2e2e2" stroke="#c0c0c0" stroke-width="1.2"/>
+        </g>
+
+        <!-- ── 11. RASGOS DE LA CARA — siempre visibles ── -->
+        <!-- cejas -->
+        <path d="M88 38 Q95 35 102 38" stroke="#5a3a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M118 38 Q125 35 132 38" stroke="#5a3a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- nariz -->
+        <ellipse cx="110" cy="58" rx="5" ry="4" fill="#d4845a"/>
+        <!-- boca -->
+        <path d="M100 68 Q110 77 120 68" stroke="#b06040" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+        <!-- ── 12. MASCARILLA — tapa nariz+boca (y=53..90) ── -->
+        <g id="epp-mascarilla" display="none">
+          <path d="M72 54 Q110 47 148 54 L150 88 Q110 96 70 88 Z" fill="#aad4f0" stroke="#7ab8e0" stroke-width="1.5"/>
+          <line x1="73"  y1="62" x2="147" y2="62" stroke="#7ab8e0" stroke-width="1"/>
+          <line x1="72"  y1="71" x2="148" y2="71" stroke="#7ab8e0" stroke-width="1"/>
+          <line x1="72"  y1="80" x2="148" y2="80" stroke="#7ab8e0" stroke-width="0.7"/>
+          <rect x="90" y="50" width="40" height="6" rx="2" fill="#88c4e8"/>
+          <line x1="72"  y1="62" x2="62"  y2="56" stroke="#888" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="72"  y1="82" x2="62"  y2="80" stroke="#888" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="148" y1="62" x2="158" y2="56" stroke="#888" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="148" y1="82" x2="158" y2="80" stroke="#888" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+
+        <!-- ── 13. OJOS — siempre encima de todo ── -->
+        <circle cx="95"  cy="48" r="5.5" fill="#1a1a2e"/>
+        <circle cx="125" cy="48" r="5.5" fill="#1a1a2e"/>
+        <circle cx="96.5" cy="46.5" r="2" fill="white"/>
+        <circle cx="126.5" cy="46.5" r="2" fill="white"/>
+
+      </svg><!-- /msvg -->
+
+      <!-- ZONAS DE DROP superpuestas -->
+      <div id="dzones">
+        <div class="dz" id="dz-head"   data-acc="cofia">     <span class="dzlabel">Cabeza</span></div>
+        <div class="dz" id="dz-face"   data-acc="mascarilla"><span class="dzlabel">Boca/Nariz</span></div>
+        <div class="dz" id="dz-torso"  data-acc="camisa,delantal"><span class="dzlabel">Torso</span></div>
+        <div class="dz" id="dz-hands"  data-acc="guantes">   <span class="dzlabel">Mano</span></div>
+        <div class="dz" id="dz-hands2" data-acc="guantes">   <span class="dzlabel">Mano</span></div>
+        <div class="dz" id="dz-legs"   data-acc="pantalon">  <span class="dzlabel">Piernas</span></div>
+        <div class="dz" id="dz-feet"   data-acc="botas">     <span class="dzlabel">Pies</span></div>
+      </div>
+
+    </div><!-- /mwrap -->
+    <div id="hint-txt">Arrastra el EPP a la zona correcta del cuerpo</div>
+  </div><!-- /center -->
+
+  <div class="panel right" id="pr-wrap">
+    <button class="panel-scroll-btn" onclick="scrollPanel('pr',-80)">▲</button>
+    <div class="panel-inner right" id="pr"></div>
+    <button class="panel-scroll-btn" onclick="scrollPanel('pr',80)">▼</button>
+  </div>
+</div><!-- /game -->
+
+<!-- GHOST -->
+<div id="ghost"><div class="gi"></div><div class="gn"></div></div>
+<!-- TOAST -->
+<div id="toast"></div>
+<!-- RESULTADO -->
+<div class="ov" id="rov">
+  <div class="rp" id="rp">
+    <div class="re" id="re"></div>
+    <div class="rt" id="rt"></div>
+    <div class="rs" id="rs"></div>
+    <div class="rsc" id="rsc"></div>
+    <div class="rbs">
+      <button class="rb p" onclick="restartGame()">JUGAR DE NUEVO</button>
+      <button class="rb s" onclick="goBack()">MENU</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── SVGs para los ítems del panel ──────────────────────────────
+const SVGS = {
+  // EPP CORRECTOS
+  cofia:`<svg viewBox="0 0 56 56"><ellipse cx="28" cy="32" rx="22" ry="14" fill="#f0f0f0" stroke="#bbb" stroke-width="1.5"/><ellipse cx="28" cy="30" rx="21" ry="13" fill="none" stroke="#ccc" stroke-width="0.9" stroke-dasharray="4,3"/><ellipse cx="28" cy="30" rx="13" ry="8" fill="none" stroke="#ccc" stroke-width="0.7" stroke-dasharray="3,2"/><rect x="6" y="40" width="44" height="9" rx="4" fill="#e8e8e8" stroke="#bbb" stroke-width="1"/><text x="28" y="24" text-anchor="middle" font-size="6" fill="#aaa" font-family="sans-serif">MALLA</text></svg>`,
+  mascarilla:`<svg viewBox="0 0 56 56"><path d="M8 18 Q28 12 48 18 L50 40 Q28 48 6 40 Z" fill="#aad4f0" stroke="#7ab8e0" stroke-width="1.5"/><line x1="8" y1="24" x2="48" y2="24" stroke="#7ab8e0" stroke-width="1"/><line x1="8" y1="31" x2="48" y2="31" stroke="#7ab8e0" stroke-width="1"/><line x1="8" y1="38" x2="48" y2="38" stroke="#7ab8e0" stroke-width="0.7"/><rect x="20" y="14" width="16" height="6" rx="2" fill="#88c4e8"/><line x1="4" y1="24" x2="8" y2="24" stroke="#888" stroke-width="1.5"/><line x1="4" y1="36" x2="8" y2="36" stroke="#888" stroke-width="1.5"/><line x1="48" y1="24" x2="52" y2="24" stroke="#888" stroke-width="1.5"/><line x1="48" y1="36" x2="52" y2="36" stroke="#888" stroke-width="1.5"/></svg>`,
+  camisa:`<svg viewBox="0 0 56 56"><path d="M14 20 L6 32 L16 30 L16 52 L40 52 L40 30 L50 32 L42 20 L36 14 Q28 8 20 14 Z" fill="#f8f8f8" stroke="#d0d0d0" stroke-width="1.5"/><path d="M20 14 Q28 22 36 14" fill="none" stroke="#d0d0d0" stroke-width="1.2"/><circle cx="28" cy="30" r="2" fill="#ccc"/><circle cx="28" cy="38" r="2" fill="#ccc"/><circle cx="28" cy="46" r="2" fill="#ccc"/></svg>`,
+  pantalon:`<svg viewBox="0 0 56 56"><rect x="10" y="8" width="36" height="8" rx="3" fill="#e8e8e8" stroke="#ccc" stroke-width="1"/><path d="M10 16 L46 16 L40 54 L32 54 L28 34 L24 54 L16 54 Z" fill="#f4f4f4" stroke="#d0d0d0" stroke-width="1.5"/><line x1="28" y1="16" x2="28" y2="34" stroke="#ddd" stroke-width="1"/></svg>`,
+  botas:`<svg viewBox="0 0 56 56"><path d="M4 10 L22 10 L22 40 Q22 48 14 50 L8 50 Q2 48 2 40 L2 10 Z" fill="#f2f2f2" stroke="#ccc" stroke-width="1.5"/><rect x="0" y="42" width="24" height="10" rx="4" fill="#ececec" stroke="#ccc" stroke-width="1"/><path d="M34 10 L52 10 L54 40 Q54 48 48 50 L40 50 Q34 48 34 40 L34 10 Z" fill="#f2f2f2" stroke="#ccc" stroke-width="1.5"/><rect x="32" y="42" width="24" height="10" rx="4" fill="#ececec" stroke="#ccc" stroke-width="1"/><line x1="6" y1="24" x2="18" y2="24" stroke="#ddd"/><line x1="38" y1="24" x2="50" y2="24" stroke="#ddd"/></svg>`,
+  guantes:`<svg viewBox="0 0 56 56"><path d="M6 26 L6 16 Q6 8 14 8 L22 8 Q30 8 30 16 L30 28 L35 24 L39 28 L30 36 L30 52 Q30 56 22 56 L14 56 Q6 56 6 52 Z" fill="#f2f2f2" stroke="#c8c8c8" stroke-width="1.5"/><line x1="6" y1="26" x2="30" y2="26" stroke="#ddd" stroke-width="0.8"/><line x1="6" y1="36" x2="30" y2="36" stroke="#ddd" stroke-width="0.8"/></svg>`,
+  delantal:`<svg viewBox="0 0 56 56"><rect x="18" y="2" width="20" height="7" rx="2" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/><path d="M8 10 L48 10 L44 54 L12 54 Z" fill="#f5f5f5" stroke="#d0d0d0" stroke-width="1.5"/><line x1="28" y1="10" x2="28" y2="54" stroke="#e4e4e4" stroke-width="0.8"/><rect x="14" y="26" width="28" height="16" rx="3" fill="#efefef" stroke="#ccc" stroke-width="1"/><path d="M3 10 Q8 8 8 10" fill="none" stroke="#bbb" stroke-width="1.5"/><path d="M53 10 Q48 8 48 10" fill="none" stroke="#bbb" stroke-width="1.5"/></svg>`,
+  // TRAMPAS
+  gorra_beisbol:`<svg viewBox="0 0 56 56"><ellipse cx="28" cy="28" rx="22" ry="14" fill="#3a6ea5" stroke="#2a5a8a" stroke-width="1.5"/><ellipse cx="28" cy="26" rx="20" ry="12" fill="#4a7ec0"/><path d="M6 28 Q4 42 14 42 L42 42 Q48 42 50 28 Z" fill="#3a6ea5" stroke="#2a5a8a" stroke-width="1"/><rect x="8" y="38" width="40" height="5" rx="2" fill="#2a5080"/><path d="M28 14 L50 28" stroke="#5a8ed0" stroke-width="1" fill="none"/><text x="28" y="32" text-anchor="middle" font-size="7" fill="#fff" font-family="sans-serif" font-weight="bold">CAP</text></svg>`,
+  camisa_color:`<svg viewBox="0 0 56 56"><path d="M14 20 L6 32 L16 30 L16 52 L40 52 L40 30 L50 32 L42 20 L36 14 Q28 8 20 14 Z" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5"/><path d="M20 14 Q28 22 36 14" fill="none" stroke="#c0392b" stroke-width="1.2"/><line x1="18" y1="24" x2="38" y2="24" stroke="#c0392b" stroke-width="1"/><line x1="18" y1="32" x2="38" y2="32" stroke="#c0392b" stroke-width="1"/><text x="28" y="45" text-anchor="middle" font-size="7" fill="#fff" font-family="sans-serif">ROJA</text></svg>`,
+  jean:`<svg viewBox="0 0 56 56"><rect x="10" y="8" width="36" height="8" rx="3" fill="#4a6fa5" stroke="#3a5f8a" stroke-width="1"/><path d="M10 16 L46 16 L40 54 L32 54 L28 34 L24 54 L16 54 Z" fill="#2c4a7a" stroke="#1a3a5a" stroke-width="1.5"/><line x1="28" y1="16" x2="28" y2="34" stroke="#3a5a8a" stroke-width="1"/><rect x="14" y="18" width="10" height="8" rx="1" fill="#3a5a8a"/><rect x="32" y="18" width="10" height="8" rx="1" fill="#3a5a8a"/><text x="28" y="48" text-anchor="middle" font-size="7" fill="#7ab" font-family="sans-serif">JEAN</text></svg>`,
+  zapatos_tela:`<svg viewBox="0 0 56 56"><path d="M4 28 Q4 18 14 18 L20 18 Q28 18 28 28 L28 44 Q14 46 4 44 Z" fill="#8b4513" stroke="#6b3510" stroke-width="1.5"/><path d="M8 22 L24 22" stroke="#a0522d" stroke-width="1"/><path d="M6 28 L26 28" stroke="#a0522d" stroke-width="1"/><path d="M28 28 Q28 18 38 18 L44 18 Q52 18 52 28 L52 44 Q38 46 28 44 Z" fill="#8b4513" stroke="#6b3510" stroke-width="1.5"/><path d="M32 22 L48 22" stroke="#a0522d" stroke-width="1"/><text x="28" y="52" text-anchor="middle" font-size="6" fill="#8b4513" font-family="sans-serif">TELA</text></svg>`,
+  mascarilla_tela:`<svg viewBox="0 0 56 56"><path d="M8 20 Q28 14 48 20 L50 40 Q28 46 6 40 Z" fill="#e8c4a0" stroke="#c8a480" stroke-width="1.5"/><path d="M8 20 L8 40" stroke="#d4aa88" stroke-width="1.5"/><path d="M48 20 L50 40" stroke="#d4aa88" stroke-width="1.5"/><line x1="8" y1="27" x2="48" y2="27" stroke="#c8a480" stroke-width="0.8"/><line x1="8" y1="33" x2="48" y2="33" stroke="#c8a480" stroke-width="0.8"/><text x="28" y="50" text-anchor="middle" font-size="6" fill="#a08060" font-family="sans-serif">TELA</text></svg>`,
+  gorro_chef:`<svg viewBox="0 0 56 56"><rect x="12" y="36" width="32" height="8" rx="2" fill="#f0f0f0" stroke="#ddd" stroke-width="1"/><ellipse cx="28" cy="26" rx="18" ry="20" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5"/><ellipse cx="28" cy="18" rx="16" ry="14" fill="#f8f8f8"/><rect x="10" y="34" width="36" height="4" rx="1" fill="#e8e8e8" stroke="#ddd" stroke-width="0.8"/><text x="28" y="52" text-anchor="middle" font-size="6" fill="#aaa" font-family="sans-serif">CHEF</text></svg>`,
+};
+
+// ─── EPP CORRECTOS ───────────────────────────────────────────────
+const EPP = [
+  {id:'cofia',      name:'Cofia / Malla',      dz:'dz-head',  svgId:'epp-cofia',      opt:false, trap:false, fact:'La cofia retiene el cabello. Obligatoria en toda area de produccion.'},
+  {id:'mascarilla', name:'Tapabocas quirurgico',dz:'dz-face',  svgId:'epp-mascarilla', opt:false, trap:false, fact:'El tapabocas reduce la contaminacion por microgotas al manipular alimentos.'},
+  {id:'camisa',     name:'Camisa antifluido',   dz:'dz-torso', svgId:'epp-camisa',     opt:false, trap:false, fact:'La camisa blanca antifluido facilita detectar suciedad y protege el alimento.'},
+  {id:'pantalon',   name:'Pantalon antifluido', dz:'dz-legs',  svgId:'epp-pantalon',   opt:false, trap:false, fact:'El pantalon blanco sin bolsillos es parte del uniforme completo.'},
+  {id:'botas',      name:'Botas blancas',       dz:'dz-feet',  svgId:'epp-botas',      opt:false, trap:false, fact:'Las botas blancas de caucho protegen los pies y son faciles de limpiar.'},
+  {id:'guantes',    name:'Guantes (opcional)',  dz:'dz-hands', svgId:'epp-guantes',    opt:true,  trap:false, fact:'Los guantes se usan cuando el proceso lo requiere. No reemplazan el lavado de manos.'},
+  {id:'delantal',   name:'Delantal (opcional)', dz:'dz-torso', svgId:'epp-delantal',   opt:true,  trap:false, fact:'El delantal blanco se coloca ENCIMA de la camisa en areas humedas.'},
+];
+
+// ─── ITEMS TRAMPA (no son EPP válido, nunca se colocan) ──────────
+const TRAMPAS = [
+  {id:'gorra_beisbol',  name:'Gorra de beisbol',   trap:true,  why:'Las gorras con visera NO cubren todo el cabello. Solo la cofia o malla es aceptada en zonas de produccion.'},
+  {id:'camisa_color',   name:'Camisa de color',     trap:true,  why:'Las camisas de color oscuro dificultan detectar suciedad. Solo se permiten camisas blancas o de color claro antifluido.'},
+  {id:'jean',           name:'Pantalon jean',        trap:true,  why:'Los jeans tienen bolsillos y costuras que acumulan suciedad y bacterias. Solo se permite pantalon blanco antifluido.'},
+  {id:'zapatos_tela',   name:'Zapatos de tela',      trap:true,  why:'Los zapatos de tela no son impermeables ni desinfectables. En planta se requieren botas blancas de caucho.'},
+  {id:'mascarilla_tela',name:'Tapabocas de tela',    trap:true,  why:'El tapabocas de tela no filtra adecuadamente microgotas y particulas. Se requiere tapabocas quirurgico desechable.'},
+  {id:'gorro_chef',     name:'Gorro de chef',        trap:true,  why:'El gorro de chef no cubre completamente el cabello como una cofia o malla. No es EPP valido en plantas de alimentos.'},
+];
+
+// ─── Estado ──────────────────────────────────────────────────────
+let score=0,timeLeft=50,tmr=null,placed={},drag=null,active=false,touch0=null;
+
+function scrollPanel(id, delta) {
+  const el = document.getElementById(id);
+  if (el) el.scrollBy({ top: delta, behavior: 'smooth' });
+}
+
+// Escala el maniquí para que quepa en el espacio disponible (landscape móvil)
+function fitMannequin() {
+  const mw = document.getElementById('mwrap');
+  const center = document.getElementById('center');
+  if (!mw || !center) return;
+  const MH = 440, MW = 220; // dimensiones originales
+  const availH = center.clientHeight - 40; // reservar 40px para hint-txt
+  const availW = center.clientWidth;
+  const scale = Math.min(availH / MH, availW / MW, 1); // nunca escalar hacia arriba
+  mw.style.transform = scale < 1 ? `scale(${scale.toFixed(3)})` : '';
+  mw.style.transformOrigin = 'top center';
+  mw.style.marginBottom = scale < 1 ? `${Math.round(MH * (scale - 1))}px` : '';
+}
+window.addEventListener('resize', fitMannequin);
+screen.orientation && screen.orientation.addEventListener('change', ()=>setTimeout(fitMannequin, 250));
+// Se llama también al arrancar el juego (ver startGame)
+let roundItems=[]; // mezcla de EPP + trampas aleatorias para esta ronda
+
+// ─── Shuffle util ────────────────────────────────────────────────
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+
+// ─── Build items ─────────────────────────────────────────────────
+function buildItems(){
+  const pl=document.getElementById('pl'), pr=document.getElementById('pr');
+  pl.innerHTML='<div class="plabel">EPP</div>';
+  pr.innerHTML='<div class="plabel">EPP</div>';
+
+  // Elegir 4 trampas aleatorias de 6 disponibles
+  const trampasRonda = shuffle([...TRAMPAS]).slice(0,4);
+  // Combinar EPP correctos + trampas y mezclar
+  roundItems = shuffle([...EPP, ...trampasRonda]);
+
+  roundItems.forEach((it,i)=>{
+    const el=document.createElement('div');
+    el.className='item'+(it.trap?' item-trap':'');
+    el.id='i-'+it.id; el.dataset.id=it.id;
+    let badges='';
+    if(it.opt && !it.trap) badges+='<span class="badge-opt">OPCIONAL</span>';
+    if(it.id==='delantal') badges+='<span class="badge-lock" id="lk">Camisa primero</span>';
+    el.innerHTML='<div class="isvg">'+(SVGS[it.id]||'<svg viewBox="0 0 56 56"><text x="28" y="32" text-anchor="middle" font-size="24">?</text></svg>')+'</div>'
+                +'<div class="iname">'+it.name+'</div>'+badges;
+    el.addEventListener('mousedown', e=>beginDrag(e,it));
+    el.addEventListener('touchstart',e=>beginDrag(e,it),{passive:false});
+    (i<6?pl:pr).appendChild(el);
+  });
+  syncLock();
+}
+
+function syncLock(){
+  const el=document.getElementById('i-delantal'), lk=document.getElementById('lk');
+  if(!el) return;
+  if(placed['camisa']){ el.classList.remove('locked'); if(lk) lk.style.display='none'; }
+  else { el.classList.add('locked'); if(lk) lk.style.display=''; }
+}
+
+// ─── Inicio ──────────────────────────────────────────────────────
+function startGame(){
+  document.getElementById('ss').style.display='none';
+  score=0; timeLeft=50; placed={}; active=true;
+  setTimeout(fitMannequin, 50); // esperar que el DOM esté visible
+  upScore(); upProg(); buildItems();
+  EPP.forEach(it=>{ const g=document.getElementById(it.svgId); if(g) g.setAttribute('display','none'); });
+  document.querySelectorAll('.dz').forEach(z=>{ z.classList.remove('ok','bad'); z.style.cssText=''; });
+  document.getElementById('rov').classList.remove('on');
+  if(tmr) clearInterval(tmr);
+  tmr=setInterval(()=>{
+    if(!active) return;
+    timeLeft--;
+    const t=document.getElementById('timer');
+    t.textContent=timeLeft;
+    t.className=timeLeft<=10?'danger':timeLeft<=20?'warn':'';
+    if(timeLeft<=0) endGame('time');
+  },1000);
+}
+
+// ─── Drag & Drop ─────────────────────────────────────────────────
+const ghost=document.getElementById('ghost');
+function beginDrag(e,it){
+  if(!active||placed[it.id]) return;
+  if(it.id==='delantal'&&!placed['camisa']){ toast('Primero coloca la camisa antifluido','info',2000); return; }
+  e.preventDefault(); drag=it;
+  ghost.querySelector('.gi').innerHTML=SVGS[it.id]||'';
+  ghost.querySelector('.gn').textContent=it.name;
+  ghost.style.display='flex';
+  const p=pos(e); mv(p.x,p.y);
+  document.getElementById('i-'+it.id).classList.add('dragging');
+  document.querySelectorAll('.dz').forEach(z=>{
+    if(z.classList.contains('ok')) return;
+    if(z.dataset.acc.split(',').includes(it.id)) z.classList.add('active');
+  });
+  if(e.type==='touchstart'){
+    touch0=e.touches[0].identifier;
+    document.addEventListener('touchmove',tmove,{passive:false});
+    document.addEventListener('touchend',tend);
+    document.addEventListener('touchcancel',tend);
+  } else {
+    document.addEventListener('mousemove',mmove);
+    document.addEventListener('mouseup',mup);
+  }
+}
+function pos(e){ if(e.touches){ const t=Array.from(e.touches).find(t=>t.identifier===touch0)||e.touches[0]; return{x:t.clientX,y:t.clientY}; } return{x:e.clientX,y:e.clientY}; }
+function mv(x,y){ ghost.style.left=x+'px'; ghost.style.top=y+'px'; }
+function hl(x,y){
+  document.querySelectorAll('.dz').forEach(z=>{
+    if(z.classList.contains('ok')) return;
+    const r=z.getBoundingClientRect(), over=x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
+    if(z.dataset.acc.split(',').includes(drag?.id)){
+      z.style.borderColor=over?'rgba(52,152,219,1)':'rgba(52,152,219,0.6)';
+      z.style.background =over?'rgba(52,152,219,0.3)':'rgba(52,152,219,0.15)';
+    }
+  });
+}
+function mmove(e){ mv(e.clientX,e.clientY); hl(e.clientX,e.clientY); }
+function tmove(e){ e.preventDefault(); const p=pos(e); mv(p.x,p.y); hl(p.x,p.y); }
+function mup(e){ document.removeEventListener('mousemove',mmove); document.removeEventListener('mouseup',mup); drop(e.clientX,e.clientY); }
+function tend(e){ document.removeEventListener('touchmove',tmove); document.removeEventListener('touchend',tend); document.removeEventListener('touchcancel',tend); const t=e.changedTouches?e.changedTouches[0]:null; if(t) drop(t.clientX,t.clientY); else drop(0,0); }
+function stopDrag(){
+  if(!drag) return;
+  document.getElementById('i-'+drag.id)?.classList.remove('dragging');
+  document.querySelectorAll('.dz').forEach(z=>{ z.classList.remove('active'); if(!z.classList.contains('ok')){ z.style.borderColor=''; z.style.background=''; } });
+  ghost.style.display='none'; drag=null;
+}
+function drop(x,y){
+  if(!drag) return;
+  const it=drag;
+  let tz=null;
+  document.querySelectorAll('.dz').forEach(z=>{
+    if(z.classList.contains('ok') && z.id!=='dz-torso') return;
+    const r=z.getBoundingClientRect();
+    if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) tz=z;
+  });
+  stopDrag();
+  if(!tz) return;
+
+  // ── Item trampa: siempre rechazar con feedback educativo ──
+  if(it.trap){
+    trapDrop(tz, it);
+    return;
+  }
+
+  const acc=tz.dataset.acc.split(',');
+  if(acc.includes(it.id)){
+    if(it.id==='delantal'&&!placed['camisa']){ toast('Primero coloca la camisa antifluido','info',2000); return; }
+    placeIt(it,tz);
+  } else {
+    badDrop(tz,it);
+  }
+}
+
+// ─── Colocar item ────────────────────────────────────────────────
+function placeIt(it,zone){
+  placed[it.id]=true; score+=100;
+  // Mostrar la capa SVG correspondiente
+  const g=document.getElementById(it.svgId);
+  if(g) g.setAttribute('display','block');
+  // Marcar zona
+  if(it.id!=='delantal') zone.classList.add('ok');
+  document.getElementById('i-'+it.id).classList.add('placed');
+  if(it.id==='camisa') syncLock();
+  toast('+100 pts — '+it.fact,'ok',3000);
+  upScore(); upProg();
+  const req=EPP.filter(i=>!i.opt);
+  if(req.every(i=>placed[i.id])) setTimeout(()=>endGame('win'),600);
+}
+function badDrop(zone,it){
+  timeLeft=Math.max(0,timeLeft-10);
+  const t=document.getElementById('timer');
+  t.textContent=timeLeft; t.className=timeLeft<=10?'danger':'warn';
+  zone.classList.add('bad'); setTimeout(()=>zone.classList.remove('bad'),500);
+  const corr=EPP.find(i=>zone.dataset.acc.split(',').includes(i.id)&&!placed[i.id]);
+  toast('-10s — Aqui va: '+(corr?corr.name:'otro elemento'),'err',2500);
+  if(timeLeft<=0) endGame('time');
+}
+
+function trapDrop(zone,it){
+  // Item trampa: penalizar y mostrar razón educativa
+  timeLeft=Math.max(0,timeLeft-10);
+  const t=document.getElementById('timer');
+  t.textContent=timeLeft; t.className=timeLeft<=10?'danger':'warn';
+  zone.classList.add('bad'); setTimeout(()=>zone.classList.remove('bad'),500);
+  // Marcar el ítem en el panel con borde rojo para que el usuario lo identifique
+  const el=document.getElementById('i-'+it.id);
+  if(el){ el.style.borderColor='#e74c3c'; el.style.background='rgba(231,76,60,0.15)'; }
+  toast('🚫 -10s — '+it.name+': '+it.why,'err',4000);
+  if(timeLeft<=0) endGame('time');
+}
+function upScore(){ document.getElementById('score-display').textContent='Pts: '+score; }
+function upProg(){
+  const req=EPP.filter(i=>!i.opt), done=req.filter(i=>placed[i.id]).length;
+  document.getElementById('prog-text').textContent=done+' / '+req.length;
+  document.getElementById('prog-bar').style.width=Math.round(done/req.length*100)+'%';
+}
+let tT=null;
+function toast(m,tp,d){
+  const t=document.getElementById('toast'); t.textContent=m; t.className='on '+tp;
+  if(tT) clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),d||2000);
+}
+function endGame(r){
+  active=false; if(tmr) clearInterval(tmr);
+  const rp=document.getElementById('rp'); rp.className='rp';
+  const req=EPP.filter(i=>!i.opt), done=req.filter(i=>placed[i.id]).length;
+  const opt=EPP.filter(i=>i.opt&&placed[i.id]).length;
+  if(r==='win'||done===req.length){
+    rp.classList.add('win');
+    document.getElementById('re').textContent='🏆';
+    document.getElementById('rt').textContent='MANIPULADOR LISTO!';
+    document.getElementById('rs').textContent='Equipaste correctamente al manipulador.'+(opt?' Ademas '+opt+' elemento(s) opcionales.':'')+' Recuerda: el EPP es la primera barrera contra la contaminacion.';
+  } else {
+    rp.classList.add('time');
+    document.getElementById('re').textContent='⏰';
+    document.getElementById('rt').textContent='TIEMPO AGOTADO!';
+    document.getElementById('rs').textContent='Colocaste '+done+' de '+req.length+' EPP obligatorios. El equipamiento incompleto representa un riesgo real de contaminacion.';
+  }
+  document.getElementById('rsc').textContent='Puntuacion: '+score+' pts';
+  document.getElementById('rov').classList.add('on');
+}
+function restartGame(){ document.getElementById('rov').classList.remove('on'); startGame(); }
+function goBack(){
+  if(window.parent&&window.parent.exitGame) window.parent.exitGame();
+  else document.getElementById('ss').style.display='flex';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') goBack(); });
+</script>
+</body>
+</html>

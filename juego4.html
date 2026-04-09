@@ -1,0 +1,304 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Caza de Malas Practicas – Fabrica de Arepas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+body{background:#0e1a0a;font-family:'Nunito',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:50px;background:linear-gradient(90deg,#080f05,#101a08);border-bottom:2px solid #1e3010;flex-shrink:0;gap:10px}
+.tbt{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;flex-shrink:0}.tbt span{color:#e74c3c}
+#tw{display:flex;align-items:center;gap:4px;flex-shrink:0}
+#timer{font-size:26px;font-weight:900;color:#2ecc71;font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+#timer.warn{color:#f39c12}#timer.danger{color:#e74c3c;animation:bl .45s infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.2}}
+#scoreD{font-size:17px;font-weight:800;color:#f1c40f;flex-shrink:0}
+@keyframes pop{0%{transform:scale(.2)}65%{transform:scale(1.3)}100%{transform:scale(1)}}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#side-panel{height:120px;width:100%;flex-shrink:0;background:rgba(0,0,0,.5);border-top:2px solid #1e3010;display:flex;flex-direction:column;overflow:hidden}
+#side-header{padding:4px 10px;background:#0a1408;border-bottom:1px solid #1e3010;flex-shrink:0;display:flex;align-items:center;gap:12px}
+#side-title{font-size:10px;font-weight:900;color:#f1c40f;text-transform:uppercase;letter-spacing:1px}
+#side-prog{font-size:10px;color:#4a8a3a;font-weight:700}
+#side-list{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;flex-direction:row;padding:4px 6px;gap:5px;align-items:flex-start}
+#side-list::-webkit-scrollbar{height:4px}
+#side-list::-webkit-scrollbar-track{background:rgba(0,0,0,.3)}
+#side-list::-webkit-scrollbar-thumb{background:#1e3010;border-radius:2px}
+.side-item{display:flex;flex-direction:row;align-items:flex-start;gap:5px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.08);flex-shrink:0;min-width:105px;max-width:140px;transition:background .2s}
+.side-item.found-item{background:rgba(39,174,96,.12)}
+.side-item.active-item{animation:pulse-item .5s ease-out}
+@keyframes pulse-item{0%{background:rgba(241,196,15,.45)}100%{background:rgba(39,174,96,.12)}}
+.side-num{width:20px;height:20px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);transition:all .3s;margin-top:1px}
+.side-item.found-item .side-num{background:#27ae60;color:#fff}
+.side-text{flex:1;min-width:0}
+.side-label{font-size:10px;font-weight:800;color:rgba(255,255,255,.45);line-height:1.3;transition:color .3s;word-break:break-word}
+.side-item.found-item .side-label{color:#a0ffb8}
+.side-fact{display:none}
+.side-item.found-item .side-fact{display:none}
+.side-check{font-size:13px;flex-shrink:0;opacity:0;transition:opacity .3s;margin-top:1px}
+.side-item.found-item .side-check{opacity:1}
+#sa{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:4px 6px;min-width:0}
+#hint{font-size:11px;font-weight:700;color:#e8d090;margin-bottom:3px;text-align:center;flex-shrink:0}
+#fc{color:#2ecc71;font-weight:900}
+#sw{position:relative;flex-shrink:0;cursor:crosshair}
+#si{display:block;border-radius:10px;border:3px solid #1e3010;box-shadow:0 0 40px rgba(0,0,0,.9)}
+.hs{position:absolute;border-radius:50%;cursor:pointer;border:2px dashed transparent;transition:all .2s}
+.hs:hover{background:rgba(255,255,80,.2);border-color:rgba(255,255,80,.9);box-shadow:0 0 12px rgba(255,255,80,.3)}
+.hs.done{pointer-events:none;border:none!important;background:none!important}
+.burst{position:absolute;border-radius:50%;pointer-events:none;border:5px solid #2ecc71;box-shadow:0 0 20px #2ecc71,0 0 45px rgba(39,174,96,.5);animation:burst .6s ease-out forwards;z-index:60}
+@keyframes burst{0%{opacity:1;transform:scale(.25)}100%{opacity:0;transform:scale(2.4)}}
+.mx{position:absolute;pointer-events:none;z-index:60;font-size:28px;font-weight:900;color:#e74c3c;text-shadow:0 0 12px #e74c3c;animation:mxa .65s ease-out forwards}
+@keyframes mxa{0%{opacity:1;transform:scale(1.6)}100%{opacity:0;transform:scale(.7) translateY(-26px)}}
+#toast{position:fixed;bottom:6px;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:26px;font-size:11px;font-weight:700;pointer-events:none;z-index:999;opacity:0;transition:opacity .28s;max-width:90vw;text-align:center;font-family:'Nunito',sans-serif}
+#toast.on{opacity:1}#toast.ok{background:linear-gradient(135deg,#1e8449,#27ae60);color:#fff;box-shadow:0 4px 18px rgba(39,174,96,.6)}
+#toast.bad{background:linear-gradient(135deg,#96281b,#c0392b);color:#fff;box-shadow:0 4px 18px rgba(192,57,43,.6)}
+.ov{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.94)}
+.ov.on{display:flex}
+.rp{background:linear-gradient(160deg,#0e1a0a,#080f05);border-radius:20px;padding:28px 40px;text-align:center;max-width:530px;width:92%;border:3px solid}
+.rp.win{border-color:#27ae60;box-shadow:0 0 50px rgba(39,174,96,.3)}.rp.time{border-color:#f39c12;box-shadow:0 0 50px rgba(243,156,18,.3)}
+.re{font-size:58px;margin-bottom:8px}.rt{font-size:24px;font-weight:900;margin-bottom:8px}
+.win .rt{color:#2ecc71}.time .rt{color:#f39c12}
+.rs{font-size:12px;color:#7a9870;margin-bottom:10px;line-height:1.5}
+.rsc{font-size:19px;font-weight:900;color:#f1c40f;margin-bottom:16px}
+.rbs{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.rb{padding:9px 20px;border-radius:10px;font-size:13px;font-weight:800;border:none;cursor:pointer;font-family:'Nunito',sans-serif;transition:opacity .2s}
+.rb:hover{opacity:.85}.rb.p{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff}
+.rb.s{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.label-box{position:absolute;background:#000;border-radius:4px;pointer-events:none;z-index:10;transition:opacity .45s ease,transform .45s ease}
+.label-box.revealed{opacity:0;transform:scale(0.88)}
+/* ── PANTALLA INICIO (estilo unificado) ── */
+#ss{position:fixed;inset:0;z-index:400;background:rgba(6,9,14,0.97);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:14px;overflow-y:auto;padding:16px 20px}
+.po-icon{font-size:68px;line-height:1}
+.po-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,7vw,44px);letter-spacing:clamp(0px,0.8vw,4px);text-align:center;color:#fff}
+/* ── BLOQUEADOR LANDSCAPE ── */
+.po-sub{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f39c12;text-align:center}
+.po-rules{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 22px;max-width:480px;width:100%}
+.po-rules li{font-size:13px;color:#bdc3c7;margin-bottom:6px;line-height:1.5;list-style:none;padding-left:4px}
+.po-btn{padding:11px 38px;border-radius:12px;border:none;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#fff;transition:opacity 0.2s,transform 0.1s;margin-top:4px}
+.po-btn:hover{opacity:0.85;transform:scale(1.04)}
+
+/* ── PORTRAIT MÓVIL ── */
+@media(orientation:portrait){
+  /* Panel más alto en portrait (hay espacio vertical de sobra) */
+  #side-panel{height:180px}
+  #side-header{padding:6px 12px}
+  #side-title{font-size:11px}
+  #side-prog{font-size:11px}
+  .side-item{padding:5px 10px;border-radius:7px;min-width:90px;max-width:130px}
+  .side-label{font-size:10px}
+  #hint{font-size:12px;margin-bottom:4px}
+  #sa{padding:4px 8px}
+}
+
+/* ── RESPONSIVE LANDSCAPE MÓVIL (≤500px alto) ── */
+@media(max-height:500px){
+  #topbar{height:30px;padding:0 8px}
+  .tbt{font-size:10px}
+  #timer{font-size:18px}
+  #scoreD{font-size:13px}
+  #side-panel{display:none}
+  #side-header{padding:5px 8px}
+  #side-title{font-size:9px}
+  #side-prog{font-size:9px}
+  .side-item{padding:3px 8px;gap:5px}
+  .side-label{font-size:9px}
+  .side-fact{font-size:8px}
+  .side-check{font-size:11px}
+  #hint{font-size:10px;margin-bottom:2px}
+  #sa{padding:2px 4px}
+  #si{border-radius:7px;border-width:2px}
+  #ss{gap:7px;padding:10px 14px}
+  .po-icon{font-size:32px}
+  .po-title{font-size:22px;letter-spacing:1px}
+  .po-sub{font-size:13px}
+  .po-rules{padding:7px 12px;max-width:100%}
+  .po-rules li{font-size:10px;margin-bottom:2px;line-height:1.3}
+  .po-btn{padding:7px 24px;font-size:17px;margin-top:0}
+  .rp{padding:16px 24px}
+  .re{font-size:40px}
+  .rt{font-size:18px}
+  .rs{font-size:10px}
+  .rsc{font-size:15px;margin-bottom:10px}
+  .rb{padding:7px 14px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<div id="ss">
+  <div class="po-icon">&#x1F575;&#xFE0F;</div>
+  <div class="po-title" style="color:#e74c3c">CAZA DE MALAS PRACTICAS</div>
+  <div class="po-sub">&#x1F3ED; Fabrica de Arepas Boyacenses</div>
+  <ul class="po-rules">
+    <li>&#x1F50D; Observa la escena &#x2014; hay <b style="color:#e74c3c">10 malas practicas</b> con etiqueta oculta bajo caja negra</li>
+    <li>&#x1F5B1;&#xFE0F; Haz clic (o toca) sobre cada circulo rojo para <b>revelar</b> la practica</li>
+    <li>&#x2705; Revelar correctamente: <b>+100 puntos</b></li>
+    <li>&#x274C; Clic fuera de los circulos: <b>&#x2212;5 segundos</b></li>
+    <li>&#x23F1;&#xFE0F; Tienes <b>90 segundos</b> para revelar las 10 practicas</li>
+  </ul>
+  <button class="po-btn" style="background:linear-gradient(135deg,#c0392b,#e74c3c);box-shadow:0 0 24px rgba(231,76,60,0.5)" onclick="startGame()">&#x25B6;&nbsp; COMENZAR</button>
+</div>
+<div id="topbar">
+  <div class="tbt">&#x1F3ED;&nbsp;<span>&#xA1;Revela las 10 malas practicas!</span></div>
+  <div id="tw"><span style="font-size:11px;color:#4a8a3a">&#x23F1;</span><span id="timer">90</span><span style="font-size:11px;color:#4a8a3a">s</span></div>
+  <div id="scoreD">Pts:&nbsp;0</div>
+</div>
+<div id="main">
+  <div id="side-panel">
+    <div id="side-header">
+      <div id="side-title">&#x1F4CB; Malas Practicas</div>
+      <div id="side-prog">0 / 10 encontradas</div>
+    </div>
+    <div id="side-list"></div>
+  </div>
+  <div id="sa">
+    <div id="hint">&#x1F50E; Toca los circulos rojos para revelar &mdash; <span id="fc">0 / 10</span></div>
+    <div id="sw"><img id="si" src="Escenario.png" alt="Fabrica de Arepas" style="display:block;border-radius:10px;border:3px solid #1e3010;box-shadow:0 0 40px rgba(0,0,0,.9)"/>
+  </div>
+</div>
+<div id="toast"></div>
+<div class="ov" id="rov">
+  <div class="rp" id="rp">
+    <div class="re" id="re"></div><div class="rt" id="rt"></div>
+    <div class="rs" id="rs"></div><div class="rsc" id="rsc"></div>
+    <div class="rbs">
+      <button class="rb p" onclick="restartGame()">&#x25B6; JUGAR DE NUEVO</button>
+      <button class="rb s" onclick="goBack()">&#x2630; MENU</button>
+    </div>
+  </div>
+</div>
+<script>
+const TOTAL=10;
+const HS=[
+  {num:1, label:"1. Enfermo",             fact:"Trabajar enfermo contamina el producto. El operario debe reportar su estado y abstenerse de manipular alimentos.",  cx:430, cy:460,  r:95,  lx:90,  ly:155, lw:215, lh:60},
+  {num:2, label:"2. Sin tapabocas",        fact:"El tapabocas quirurgico es obligatorio en toda area de manipulacion. Previene contaminacion por microgotas.",       cx:1600,cy:290,  r:90,  lx:1480,ly:108, lw:265, lh:60},
+  {num:3, label:"3. Sin cofia",            fact:"El cabello puede caer al producto. La cofia debe cubrir completamente el cabello antes de ingresar a produccion.",   cx:200, cy:870,  r:90,  lx:85,  ly:614, lw:195, lh:60},
+  {num:4, label:"4. Con relojes",          fact:"Los relojes y accesorios acumulan microorganismos. Todo accesorio debe retirarse antes de ingresar a planta.",       cx:555, cy:860,  r:85,  lx:455, ly:614, lw:215, lh:60},
+  {num:5, label:"5. Uniforme manchado",    fact:"El uniforme limpio es parte del EPP. Un uniforme sucio puede transferir contaminantes directamente al producto.",      cx:905, cy:845,  r:90,  lx:810, ly:614, lw:270, lh:60},
+  {num:6, label:"6. Usa tenis deportivos", fact:"Se requiere calzado de seguridad blanco impermeable. Los tenis introducen suciedad y no protegen adecuadamente.",     cx:1185,cy:845,  r:90,  lx:1075,ly:614, lw:305, lh:60},
+  {num:7, label:"7. Comiendo",             fact:"Comer en el area de produccion esta prohibido. Los alimentos personales pueden contaminar el producto final.",         cx:1510,cy:870,  r:85,  lx:1420,ly:614, lw:195, lh:60},
+  {num:8, label:"8. Usa el celular",       fact:"El celular esta prohibido en planta. Contiene bacterias y distrae al operario generando riesgos de contaminacion.",   cx:1815,cy:860,  r:85,  lx:1720,ly:614, lw:245, lh:60},
+  {num:9, label:"9. Fumando",              fact:"Esta prohibido fumar en areas de produccion. Las cenizas y el humo contaminan directamente el producto.",              cx:235, cy:1640, r:90,  lx:120, ly:1368,lw:200, lh:60},
+  {num:11,label:"11. Sin tapabocas",       fact:"Sin tapabocas en area de produccion se expone el producto a contaminacion bacteriana por aerosoles y microgotas.",    cx:1355,cy:450,  r:85,  lx:1290,ly:155, lw:270, lh:60}];
+let score=0,timeLeft=90,tmr=null,active=false,found=new Set();
+let imgW=2475,imgH=2475,dispW=2475,dispH=2475;
+function scaleHS(h){const sx=dispW/imgW,sy=dispH/imgH;return{cx:Math.round(h.cx*sx),cy:Math.round(h.cy*sy),r:Math.max(18,Math.round(h.r*sx))};}
+function buildSidePanel(){
+  const list=document.getElementById('side-list');list.innerHTML='';
+  HS.forEach(h=>{
+    const item=document.createElement('div');item.className='side-item';item.id='si-'+h.num;
+    item.innerHTML='<div class="side-num">'+h.num+'</div>'+
+      '<div class="side-text"><div class="side-label">'+h.label+'</div>'+
+      '<div class="side-fact">'+h.fact+'</div></div>'+
+      '<div class="side-check">&#x2705;</div>';
+    list.appendChild(item);
+  });
+}
+function buildChips(){}
+function upScore(){document.getElementById('scoreD').textContent='Pts: '+score;}
+function upFound(){document.getElementById('fc').textContent=found.size+' / '+TOTAL;document.getElementById('side-prog').textContent=found.size+' / '+TOTAL+' reveladas';}
+function startGame(){
+  document.getElementById('ss').style.display='none';
+  score=0;timeLeft=90;found=new Set();active=true;
+  document.getElementById('rov').classList.remove('on');
+  document.getElementById('timer').textContent='90';document.getElementById('timer').className='';
+  upScore();upFound();buildChips();buildSidePanel();
+  document.querySelectorAll('.hs,.mx,.label-box').forEach(e=>e.remove());
+  const img=document.getElementById('si'),sw=document.getElementById('sw');
+  const panelH=document.getElementById('side-panel').offsetHeight;
+  const topbarH=document.getElementById('topbar').offsetHeight;
+  const maxW=Math.min(window.innerWidth-12,2475),maxH=window.innerHeight-topbarH-panelH-10;
+  const scale=Math.min(maxW/imgW,maxH/imgH,1);
+  dispW=Math.round(imgW*scale);dispH=Math.round(imgH*scale);
+  img.style.width=dispW+'px';img.style.height=dispH+'px';
+  HS.forEach(h=>{
+    const s=scaleHS(h),div=document.createElement('div');
+    div.className='hs';div.id='hs'+h.num;
+    div.style.cssText=`left:${s.cx-s.r}px;top:${s.cy-s.r}px;width:${s.r*2}px;height:${s.r*2}px;`;
+    div.addEventListener('click',e=>{e.stopPropagation();onHit(h);});
+    sw.appendChild(div);
+  });
+  const sx=dispW/imgW,sy=dispH/imgH;
+  HS.forEach(h=>{
+    const lb=document.createElement('div');
+    lb.className='label-box';lb.id='lb'+h.num;
+    lb.style.cssText=`left:${Math.round(h.lx*sx)}px;top:${Math.round(h.ly*sy)}px;width:${Math.round(h.lw*sx)}px;height:${Math.round(h.lh*sy)}px;`;
+    sw.appendChild(lb);
+  });
+  if(tmr)clearInterval(tmr);
+  tmr=setInterval(()=>{
+    if(!active)return;timeLeft--;
+    const t=document.getElementById('timer');t.textContent=timeLeft;
+    t.className=timeLeft<=10?'danger':timeLeft<=20?'warn':'';
+    if(timeLeft<=0)endGame('time');
+  },1000);
+}
+function onHit(h){
+  if(!active||found.has(h.num))return;
+  found.add(h.num);score+=100;upScore();upFound();
+  const s=scaleHS(h),sw=document.getElementById('sw');
+  const burst=document.createElement('div');burst.className='burst';
+  burst.style.cssText=`left:${s.cx-s.r-6}px;top:${s.cy-s.r-6}px;width:${s.r*2+12}px;height:${s.r*2+12}px;`;
+  sw.appendChild(burst);setTimeout(()=>burst.remove(),700);
+  document.getElementById('hs'+h.num).classList.add('done');
+  const lb=document.getElementById('lb'+h.num);if(lb)lb.classList.add('revealed');
+  const item=document.getElementById('si-'+h.num);
+  if(item){item.classList.add('found-item','active-item');setTimeout(()=>item.classList.remove('active-item'),600);item.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  if(found.size===TOTAL)setTimeout(()=>endGame('win'),700);
+}
+document.addEventListener('click',e=>{
+  if(!active)return;
+  const sw=document.getElementById('sw'),img=document.getElementById('si');
+  if(e.target!==img&&e.target!==sw)return;
+  const rect=sw.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const hit=HS.find(h=>{if(found.has(h.num))return false;const s=scaleHS(h);return Math.hypot(mx-s.cx,my-s.cy)<=s.r;});
+  if(hit){onHit(hit);return;}
+  timeLeft=Math.max(0,timeLeft-5);
+  document.getElementById('timer').textContent=timeLeft;
+  document.getElementById('timer').className=timeLeft<=10?'danger':'warn';
+  setTimeout(()=>{if(timeLeft>10)document.getElementById('timer').className='';},400);
+  if(timeLeft<=0)endGame('time');
+});
+let tT=null;
+function toast(m,tp,d){const t=document.getElementById('toast');t.textContent=m;t.className='on '+tp;if(tT)clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),d||2000);}
+function endGame(r){
+  active=false;if(tmr)clearInterval(tmr);
+  const rp=document.getElementById('rp');rp.className='rp';
+  if(r==='win'){rp.classList.add('win');document.getElementById('re').textContent='\u{1F3C6}';document.getElementById('rt').textContent='\u00A1PRACTICAS REVELADAS!';document.getElementById('rs').textContent='\u{1F44F} Identificaste las '+TOTAL+' malas practicas. Tu conocimiento de las BPM protege la inocuidad del producto.';}
+  else{rp.classList.add('time');document.getElementById('re').textContent='\u23F0';document.getElementById('rt').textContent='TIEMPO AGOTADO';document.getElementById('rs').textContent='Revelaste '+found.size+' de '+TOTAL+' malas practicas. Cada practica no identificada es un riesgo real de ETA. \u00A1Intentalo de nuevo!';}
+  document.getElementById('rsc').textContent='Puntuacion: '+score+' pts  \u2022  Reveladas: '+found.size+'/'+TOTAL;
+  document.getElementById('rov').classList.add('on');
+}
+function restartGame(){document.getElementById('rov').classList.remove('on');startGame();}
+function goBack(){if(window.parent&&window.parent.exitGame)window.parent.exitGame();else document.getElementById('ss').style.display='flex';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')goBack();});
+function relayout(){
+  if(!active)return;
+  const img=document.getElementById('si'),sw=document.getElementById('sw');
+  const panelH=document.getElementById('side-panel').offsetHeight;
+  const topbarH=document.getElementById('topbar').offsetHeight;
+  const maxW=Math.min(window.innerWidth-12,2475),maxH=window.innerHeight-topbarH-panelH-10;
+  const scale=Math.min(maxW/imgW,maxH/imgH,1);
+  dispW=Math.round(imgW*scale);dispH=Math.round(imgH*scale);
+  img.style.width=dispW+'px';img.style.height=dispH+'px';
+  const sx=dispW/imgW,sy=dispH/imgH;
+  document.querySelectorAll('.hs').forEach(el=>{
+    const h=HS.find(x=>x.num===+el.id.slice(2));
+    if(!h)return;
+    const s=scaleHS(h);
+    el.style.cssText=`left:${s.cx-s.r}px;top:${s.cy-s.r}px;width:${s.r*2}px;height:${s.r*2}px;`;
+  });
+  document.querySelectorAll('.label-box').forEach(el=>{
+    const h=HS.find(x=>x.num===+el.id.slice(2));
+    if(!h)return;
+    el.style.left=Math.round(h.lx*sx)+'px';
+    el.style.top=Math.round(h.ly*sy)+'px';
+    el.style.width=Math.round(h.lw*sx)+'px';
+    el.style.height=Math.round(h.lh*sy)+'px';
+  });
+}
+window.addEventListener('resize',relayout);
+screen.orientation&&screen.orientation.addEventListener('change',()=>setTimeout(relayout,200));
+</script>
+</body>
+</html>

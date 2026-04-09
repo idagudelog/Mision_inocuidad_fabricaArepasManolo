@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Manos Seguras – El Reto del Lavado Perfecto</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#06090e;font-family:'Nunito',sans-serif;color:#ecf0f1;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── HUD ── */
+#hud{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:6px;
+  padding:7px 16px;background:rgba(0,0,0,0.88);
+  border-bottom:2px solid rgba(255,255,255,0.07);flex-shrink:0;
+}
+#hud-title{font-family:'Bebas Neue',sans-serif;font-size:17px;color:#ecf0f1;letter-spacing:2px;white-space:nowrap}
+#hud-phase{font-family:'Bebas Neue',sans-serif;font-size:14px;padding:3px 12px;border-radius:20px;border:2px solid;letter-spacing:1px;white-space:nowrap}
+#hud-timer{font-family:'Bebas Neue',sans-serif;font-size:28px;color:#2ecc71;min-width:60px;text-align:center;flex-shrink:0}
+#hud-timer.warn{color:#f39c12}
+#hud-timer.danger{color:#e74c3c;animation:blink 0.5s ease infinite alternate}
+@keyframes blink{from{opacity:1}to{opacity:0.35}}
+#hud-progress{font-size:12px;color:#7f8c8d;text-align:right;white-space:nowrap}
+
+/* ── GAME LAYOUT ── */
+#game{display:flex;flex:1;overflow:hidden}
+
+/* ── CARDS PANEL ── */
+#cards-panel{
+  flex:1;display:flex;flex-direction:column;
+  padding:8px;gap:6px;overflow:hidden;
+}
+#cards-title{
+  font-family:'Bebas Neue',sans-serif;font-size:13px;color:#5a7a6a;letter-spacing:2px;
+  text-align:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;
+}
+#cards-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:3px}
+#cards-list::-webkit-scrollbar{width:3px}
+#cards-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+
+/* ── TARJETA ── */
+.card{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 11px;border-radius:9px;
+  border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);
+  cursor:pointer;user-select:none;
+  transition:transform 0.12s,box-shadow 0.12s,border-color 0.15s,background 0.15s;
+  font-size:11.5px;color:#d5e8d4;line-height:1.35;
+}
+.card:hover:not(.done){
+  border-color:rgba(255,255,255,0.28);background:rgba(255,255,255,0.08);
+  transform:translateX(4px);box-shadow:0 4px 14px rgba(0,0,0,0.4);
+}
+.card:active:not(.done){transform:scale(0.97)}
+.card.done{
+  border:2px solid #27ae60;background:rgba(39,174,96,0.12);
+  cursor:default;pointer-events:none;
+}
+.card.wrong-click{animation:shake 0.4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.card-num{
+  font-family:'Bebas Neue',sans-serif;font-size:19px;
+  color:rgba(255,255,255,0.18);flex-shrink:0;width:24px;text-align:center;
+}
+.card.done .card-num{color:#27ae60}
+.card-emoji{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.card-text{flex:1}
+
+/* ── PHASE OVERLAY ── */
+#phase-overlay{
+  position:fixed;inset:0;z-index:100;background:rgba(6,9,14,0.96);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:14px;
+  padding:16px 20px;overflow-y:auto;
+}
+#phase-overlay.hide{display:none}
+.po-icon{font-size:68px;line-height:1}
+.po-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,7vw,44px);letter-spacing:clamp(0px,0.8vw,4px);text-align:center}
+.po-count{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f39c12}
+.po-sub{font-size:14px;color:#95a5a6;text-align:center;max-width:480px;line-height:1.6}
+.po-rules{
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;padding:14px 22px;max-width:480px;width:100%;
+}
+.po-rules li{font-size:13px;color:#bdc3c7;margin-bottom:6px;line-height:1.5;list-style:none;padding-left:4px}
+.po-btn{
+  padding:11px 38px;border-radius:12px;border:none;cursor:pointer;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#fff;
+  transition:opacity 0.2s,transform 0.1s;margin-top:4px;
+}
+.po-btn:hover{opacity:0.85;transform:scale(1.04)}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+  padding:8px 20px;border-radius:24px;font-size:13px;font-weight:800;
+  pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:200;white-space:nowrap;
+}
+#toast.show{opacity:1}
+#toast.ok{background:linear-gradient(135deg,#1e8449,#27ae60);color:#fff;box-shadow:0 4px 16px rgba(39,174,96,0.5)}
+#toast.bad{background:linear-gradient(135deg,#96281b,#c0392b);color:#fff;box-shadow:0 4px 16px rgba(192,57,43,0.5)}
+
+/* ── FLASH ── */
+#flash{position:fixed;inset:0;z-index:150;pointer-events:none;opacity:0;background:rgba(231,76,60,0.3);transition:opacity 0.5s}
+
+/* ── RESULTADO ── */
+#result{
+  position:fixed;inset:0;z-index:300;background:rgba(6,9,14,0.97);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;padding:16px;
+}
+#result.show{display:flex}
+.rp{
+  background:linear-gradient(160deg,#0e1a0a,#080f05);
+  border-radius:18px;padding:28px 36px;text-align:center;
+  max-width:520px;width:100%;border:3px solid;
+}
+.rp.win{border-color:#27ae60;box-shadow:0 0 60px rgba(39,174,96,0.22)}
+.rp.lose{border-color:#e74c3c;box-shadow:0 0 60px rgba(231,76,60,0.18)}
+.rt{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:3px;margin-bottom:8px}
+.rs{font-size:13px;color:#95a5a6;margin-bottom:18px;line-height:1.6;max-width:420px;margin-left:auto;margin-right:auto}
+.rmetrics{display:flex;gap:12px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.rm{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 16px;min-width:100px}
+.rml{font-size:10px;color:#5a6a7a;margin-bottom:3px;letter-spacing:1px;text-transform:uppercase}
+.rmv{font-family:'Bebas Neue',sans-serif;font-size:24px}
+.rbtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.rb{padding:9px 22px;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:18px;border:none;cursor:pointer;transition:opacity 0.2s}
+.rb:hover{opacity:0.8}
+
+/* ── PORTRAIT MÓVIL ── */
+@media(orientation:portrait){
+  #hud{padding:8px 14px}
+  #hud-title{font-size:15px}
+  #hud-phase{font-size:13px;padding:3px 10px}
+  #hud-timer{font-size:26px}
+  #hud-progress{font-size:11px}
+  #cards-title{font-size:12px;letter-spacing:1.5px}
+  .card{padding:8px 12px;gap:8px;font-size:12px;line-height:1.4}
+  .card-emoji{font-size:19px;width:26px}
+  .card-num{font-size:18px;width:22px}
+}
+
+/* ── RESPONSIVE LANDSCAPE MÓVIL (≤500px alto) ── */
+@media(max-height:500px){
+  /* HUD compacto — una sola fila sin wrap */
+  #hud{padding:3px 10px;gap:8px;flex-wrap:nowrap;min-height:0}
+  #hud-title{font-size:11px;letter-spacing:1px}
+  #hud-phase{font-size:10px;padding:2px 7px;border-width:1.5px;letter-spacing:0}
+  #hud-timer{font-size:19px;min-width:44px}
+  #hud-progress{font-size:9px;min-width:0;white-space:nowrap}
+
+  /* Panel de tarjetas */
+  #cards-panel{padding:4px 6px;gap:3px}
+  #cards-title{font-size:10px;padding:1px 0;letter-spacing:1px}
+
+  /* 2 columnas para que quepan las 11 tarjetas */
+  #cards-list{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:3px;
+    align-content:start;
+    overflow-y:auto;
+  }
+
+  /* Tarjetas ultra-compactas */
+  .card{padding:3px 7px;gap:5px;border-radius:6px;font-size:9.5px;border-width:1.5px;line-height:1.2;align-items:center}
+  .card-emoji{font-size:13px;width:16px}
+  .card-num{font-size:13px;width:15px}
+  .card-text{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+  /* Phase overlay compacto */
+  #phase-overlay{gap:7px;padding:10px 14px}
+  .po-icon{font-size:32px}
+  .po-title{font-size:22px;letter-spacing:1px}
+  .po-count{font-size:13px}
+  .po-sub{font-size:11px}
+  .po-rules{padding:7px 12px;max-width:100%}
+  .po-rules li{font-size:10px;margin-bottom:2px;line-height:1.3}
+  .po-btn{padding:7px 24px;font-size:17px;margin-top:0}
+
+  /* Pantalla de resultado */
+  #result{padding:10px}
+  .rp{padding:12px 16px;border-radius:12px;border-width:2px}
+  .rt{font-size:22px;letter-spacing:2px;margin-bottom:4px}
+  .rs{font-size:10px;margin-bottom:8px;line-height:1.4}
+  .rmetrics{gap:5px;margin-bottom:8px}
+  .rm{padding:5px 10px;min-width:68px;border-radius:7px}
+  .rml{font-size:8px;margin-bottom:1px}
+  .rmv{font-size:16px}
+  .rbtns{gap:7px}
+  .rb{padding:6px 14px;font-size:14px;border-radius:7px}
+}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-title">🖐 MANOS SEGURAS</div>
+  <div id="hud-phase" style="color:#3498db;border-color:#3498db">🧼 LIMPIEZA</div>
+  <div id="hud-timer">3:00</div>
+  <div id="hud-progress">0 / 11 pasos</div>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <div id="cards-panel">
+    <div id="cards-title">👆 Toca los pasos EN ORDEN — del 1 al último</div>
+    <div id="cards-list"></div>
+  </div>
+</div>
+
+<!-- PHASE OVERLAY -->
+<div id="phase-overlay">
+  <div class="po-icon" id="po-icon">🧼</div>
+  <div class="po-title" id="po-title">LIMPIEZA DE MANOS</div>
+  <div class="po-count" id="po-count">11 pasos para ordenar</div>
+  <ul class="po-rules" id="po-rules">
+    <li>👆 Toca los pasos en el orden correcto, del primero al último</li>
+    <li>✅ Si aciertas, el paso se marca con su número y queda verde</li>
+    <li>❌ Un error resta <b>5 segundos</b> del tiempo disponible</li>
+    <li>⏱️ Tienes <b>3 minutos</b> para completar limpieza y desinfección</li>
+  </ul>
+  <button class="po-btn" id="po-btn">¡ COMENZAR !</button>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- FLASH -->
+<div id="flash"></div>
+
+<!-- RESULT -->
+<div id="result">
+  <div class="rp" id="rp">
+    <div class="rt" id="rt">–</div>
+    <div class="rs" id="rs">–</div>
+    <div class="rmetrics" id="rmetrics"></div>
+    <div class="rbtns">
+      <button class="rb" style="background:#27ae60;color:#fff" onclick="restartGame()">JUGAR DE NUEVO</button>
+      <button class="rb" style="background:#2980b9;color:#fff" onclick="goMenu()">MENÚ PRINCIPAL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATOS ──────────────────────────────────────────────────────────
+const PHASES = [
+  {
+    key: 'limpieza',
+    name: 'LIMPIEZA DE MANOS',
+    icon: '🧼',
+    color: '#3498db',
+    steps: [
+      { emoji: '💧', text: 'Mójese las manos con agua' },
+      { emoji: '🧼', text: 'Deposite en la palma de la mano una cantidad de jabón suficiente para cubrir todas las superficies de las manos' },
+      { emoji: '👐', text: 'Frótese las palmas de las manos entre sí' },
+      { emoji: '🤲', text: 'Frótese la palma de la mano derecha contra el dorso de la mano izquierda entrelazando los dedos y viceversa' },
+      { emoji: '🙌', text: 'Frótese las palmas de las manos entre sí, con los dedos entrelazados' },
+      { emoji: '✊', text: 'Frótese el dorso de los dedos de una mano con la palma de la mano opuesta, agarrándose los dedos' },
+      { emoji: '👍', text: 'Frótese con un movimiento de rotación el pulgar izquierdo, atrapándolo con la palma de la mano derecha y viceversa' },
+      { emoji: '☝️', text: 'Frótese la punta de los dedos de la mano derecha contra la palma de la mano izquierda, haciendo un movimiento de rotación y viceversa' },
+      { emoji: '💧', text: 'Enjuáguese las manos con agua' },
+      { emoji: '🧻', text: 'Séquese con una toalla desechable' },
+      { emoji: '🚰', text: 'Sírvase de la toalla para cerrar el grifo' },
+    ]
+  },
+  {
+    key: 'desinfeccion',
+    name: 'DESINFECCIÓN DE MANOS',
+    icon: '🧴',
+    color: '#9b59b6',
+    steps: [
+      { emoji: '🧴', text: 'Deposite en la palma de la mano una dosis de producto suficiente para cubrir todas las superficies' },
+      { emoji: '👐', text: 'Frótese las palmas de las manos entre sí' },
+      { emoji: '🤲', text: 'Frótese la palma de la mano derecha contra el dorso de la mano izquierda entrelazando los dedos y viceversa' },
+      { emoji: '🙌', text: 'Frótese las palmas de las manos entre sí, con los dedos entrelazados' },
+      { emoji: '✊', text: 'Frótese el dorso de los dedos de una mano con la palma de la mano opuesta, agarrándose los dedos' },
+      { emoji: '👍', text: 'Frótese con un movimiento de rotación el pulgar izquierdo, atrapándolo con la palma de la mano derecha y viceversa' },
+      { emoji: '☝️', text: 'Frótese la punta de los dedos de la mano derecha contra la palma de la mano izquierda, haciendo un movimiento de rotación y viceversa' },
+      { emoji: '✅', text: 'Una vez secas, sus manos son seguras' },
+    ]
+  }
+];
+
+// ── ESTADO ─────────────────────────────────────────────────────────
+let phaseIdx     = 0;
+let nextExpected = 0;
+let timeLeft     = 180;
+let timerInterval = null;
+let errors       = 0;
+let totalCorrect = 0;
+
+// ── REFS ───────────────────────────────────────────────────────────
+const hudPhase    = document.getElementById('hud-phase');
+const hudTimer    = document.getElementById('hud-timer');
+const hudProgress = document.getElementById('hud-progress');
+const cardsList   = document.getElementById('cards-list');
+const phaseOv     = document.getElementById('phase-overlay');
+const poIcon      = document.getElementById('po-icon');
+const poTitle     = document.getElementById('po-title');
+const poCount     = document.getElementById('po-count');
+const poRules     = document.getElementById('po-rules');
+const poBtn       = document.getElementById('po-btn');
+const toastEl     = document.getElementById('toast');
+const flashEl     = document.getElementById('flash');
+const resultEl    = document.getElementById('result');
+
+// ── UTILS ──────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return m + ':' + (ss < 10 ? '0' : '') + ss;
+}
+
+function showToast(msg, type, dur = 2000) {
+  toastEl.textContent = msg;
+  toastEl.className = 'show ' + type;
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => { toastEl.className = ''; }, dur);
+}
+
+function flashRed() {
+  flashEl.style.opacity = '1';
+  setTimeout(() => { flashEl.style.opacity = '0'; }, 80);
+}
+
+// ── TIMER ──────────────────────────────────────────────────────────
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    hudTimer.textContent = fmt(timeLeft);
+    if (timeLeft <= 20)      hudTimer.className = 'danger';
+    else if (timeLeft <= 60) hudTimer.className = 'warn';
+    if (timeLeft <= 0) { clearInterval(timerInterval); endGame(false); }
+  }, 1000);
+}
+
+// ── BUILD PHASE ────────────────────────────────────────────────────
+function buildPhase(idx) {
+  phaseIdx = idx;
+  nextExpected = 0;
+  const phase = PHASES[idx];
+
+  hudPhase.textContent = phase.icon + ' ' + (idx === 0 ? 'LIMPIEZA' : 'DESINFECCIÓN');
+  hudPhase.style.color = phase.color;
+  hudPhase.style.borderColor = phase.color;
+
+  cardsList.innerHTML = '';
+  const shuffled = shuffle(phase.steps.map((s, i) => ({ ...s, correctIdx: i })));
+  shuffled.forEach(step => cardsList.appendChild(createCard(step)));
+
+  updateProgress();
+}
+
+// ── CREAR TARJETA ──────────────────────────────────────────────────
+function createCard(step) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.dataset.correctIdx = step.correctIdx;
+  el.innerHTML = `<span class="card-num">–</span><span class="card-emoji">${step.emoji}</span><span class="card-text">${step.text}</span>`;
+
+  el.addEventListener('click', function() {
+    if (this.classList.contains('done')) return;
+    const correctIdx = parseInt(this.dataset.correctIdx);
+    if (correctIdx === nextExpected) {
+      this.classList.add('done');
+      this.querySelector('.card-num').textContent = correctIdx + 1;
+      nextExpected++;
+      totalCorrect++;
+      showToast('✅ ¡Correcto! Paso ' + (correctIdx + 1), 'ok', 1400);
+      updateProgress();
+      if (nextExpected === PHASES[phaseIdx].steps.length) {
+        if (phaseIdx === 0) {
+          setTimeout(() => showPhaseOverlay(1), 900);
+        } else {
+          setTimeout(() => endGame(true), 900);
+        }
+      }
+    } else {
+      errors++;
+      timeLeft = Math.max(0, timeLeft - 5);
+      hudTimer.textContent = fmt(timeLeft);
+      if (timeLeft <= 20)      hudTimer.className = 'danger';
+      else if (timeLeft <= 60) hudTimer.className = 'warn';
+      this.classList.add('wrong-click');
+      setTimeout(() => this.classList.remove('wrong-click'), 500);
+      flashRed();
+      showToast('❌ Ese no es el siguiente — ¡−5 segundos!', 'bad', 2200);
+      if (timeLeft <= 0) { clearInterval(timerInterval); endGame(false); }
+    }
+  });
+
+  return el;
+}
+
+// ── PROGRESO ───────────────────────────────────────────────────────
+function updateProgress() {
+  const total = PHASES[phaseIdx].steps.length;
+  hudProgress.textContent = `Fase ${phaseIdx + 1}/2 — ${nextExpected}/${total} pasos`;
+}
+
+// ── PHASE OVERLAY ──────────────────────────────────────────────────
+function showPhaseOverlay(idx) {
+  const phase = PHASES[idx];
+  poIcon.textContent  = phase.icon;
+  poTitle.textContent = phase.name;
+  poTitle.style.color = phase.color;
+  poCount.textContent = phase.steps.length + ' pasos para ordenar';
+  poBtn.style.background = phase.color;
+
+  if (idx === 0) {
+    poRules.innerHTML = `
+      <li>👆 Toca los pasos en el orden correcto, del primero al último</li>
+      <li>✅ Si aciertas, el paso se marca con su número y queda verde</li>
+      <li>❌ Un error resta <b>5 segundos</b> del tiempo disponible</li>
+      <li>⏱️ Tienes <b>3 minutos</b> para completar limpieza y desinfección</li>`;
+    poBtn.textContent = '¡ COMENZAR !';
+    poBtn.onclick = () => {
+      phaseOv.classList.add('hide');
+      buildPhase(0);
+      startTimer();
+    };
+  } else {
+    poRules.innerHTML = `
+      <li>🏆 ¡Excelente! Completaste la fase de <b>limpieza de manos</b></li>
+      <li>🧴 Ahora ordena los <b>${phase.steps.length} pasos de desinfección</b></li>
+      <li>⏱️ El tiempo sigue corriendo — ¡no te detengas!</li>`;
+    poBtn.textContent = '¡ CONTINUAR !';
+    poBtn.onclick = () => {
+      phaseOv.classList.add('hide');
+      buildPhase(1);
+    };
+  }
+
+  phaseOv.classList.remove('hide');
+}
+
+// ── FIN DE JUEGO ───────────────────────────────────────────────────
+function endGame(win) {
+  clearInterval(timerInterval);
+  const totalSteps = PHASES[0].steps.length + PHASES[1].steps.length;
+  const pct = Math.round((totalCorrect / totalSteps) * 100);
+
+  const rp = document.getElementById('rp');
+  rp.className = 'rp ' + (win ? 'win' : 'lose');
+
+  const rt = document.getElementById('rt');
+  rt.textContent = win ? '🏆 ¡MANOS PERFECTAS!' : '⏱️ TIEMPO AGOTADO';
+  rt.style.color = win ? '#2ecc71' : '#e74c3c';
+
+  document.getElementById('rs').textContent = win
+    ? '¡Completaste el protocolo completo de lavado y desinfección de manos. Tus manos son seguras y listas para manipular alimentos!'
+    : 'Se acabó el tiempo. Recuerda: el orden correcto en el lavado y desinfección de manos es esencial para garantizar la inocuidad alimentaria.';
+
+  document.getElementById('rmetrics').innerHTML = `
+    <div class="rm"><div class="rml">Pasos correctos</div><div class="rmv" style="color:#2ecc71">${totalCorrect}/${totalSteps}</div></div>
+    <div class="rm"><div class="rml">Errores</div><div class="rmv" style="color:#e74c3c">${errors}</div></div>
+    <div class="rm"><div class="rml">Efectividad</div><div class="rmv" style="color:#f1c40f">${pct}%</div></div>
+    <div class="rm"><div class="rml">Tiempo restante</div><div class="rmv" style="color:#3498db">${fmt(timeLeft)}</div></div>`;
+
+  resultEl.classList.add('show');
+}
+
+function restartGame() {
+  resultEl.classList.remove('show');
+  phaseIdx = 0; nextExpected = 0; timeLeft = 180; errors = 0; totalCorrect = 0;
+  clearInterval(timerInterval);
+  hudTimer.textContent = '3:00';
+  hudTimer.className = '';
+  showPhaseOverlay(0);
+}
+
+function goMenu() {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage('exitGame', '*');
+  } else {
+    window.history.back();
+  }
+}
+
+// ── INIT ───────────────────────────────────────────────────────────
+showPhaseOverlay(0);
+</script>
+</body>
+</html>
